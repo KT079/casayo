@@ -11,6 +11,15 @@ export const DEFAULT_LAYOUT: CanvasLayout = {
     opacity: 1, 
     textColor: '#ffffff', 
     fontFamily: 'Inter' 
+  },
+  cutout: {
+    enabled: false,
+    data: undefined,
+    x: 0,
+    y: 0,
+    scale: 1,
+    rotation: 0,
+    opacity: 1
   }
 };
 
@@ -37,9 +46,16 @@ export const drawScene = (
   year: number,
   theme: string,
   layout: CanvasLayout = DEFAULT_LAYOUT,
-  styleId: CalendarStyleId = 'classic'
+  styleId: CalendarStyleId = 'classic',
+  cutoutImg?: HTMLImageElement | null
 ) => {
   const canvas = ctx.canvas;
+
+  const mergedLayout: CanvasLayout = {
+    image: { ...DEFAULT_LAYOUT.image, ...layout?.image },
+    overlay: { ...DEFAULT_LAYOUT.overlay, ...layout?.overlay },
+    cutout: { ...DEFAULT_LAYOUT.cutout, ...layout?.cutout }
+  };
   
   // 1. CLEAR CANVAS
   ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -62,38 +78,51 @@ export const drawScene = (
     baseY = (canvas.height - baseH) / 2;
   }
 
-  const finalW = baseW * layout.image.scale;
-  const finalH = baseH * layout.image.scale;
+  const finalW = baseW * mergedLayout.image.scale;
+  const finalH = baseH * mergedLayout.image.scale;
   
   const scaleOffsetX = (finalW - baseW) / 2;
   const scaleOffsetY = (finalH - baseH) / 2;
 
-  const finalX = baseX + layout.image.x - scaleOffsetX;
-  const finalY = baseY + layout.image.y - scaleOffsetY;
+  const finalX = baseX + mergedLayout.image.x - scaleOffsetX;
+  const finalY = baseY + mergedLayout.image.y - scaleOffsetY;
 
   // DRAW IMAGE
   ctx.save();
-  ctx.globalAlpha = layout.image.opacity ?? 1;
+  ctx.globalAlpha = mergedLayout.image.opacity ?? 1;
   ctx.drawImage(img, finalX, finalY, finalW, finalH);
   ctx.restore();
+
+
+  if (mergedLayout.cutout.enabled && cutoutImg) {
+    const size = Math.min(canvas.width, canvas.height) * 0.45 * mergedLayout.cutout.scale;
+    const cx = canvas.width / 2 + mergedLayout.cutout.x;
+    const cy = canvas.height / 2 + mergedLayout.cutout.y;
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate((mergedLayout.cutout.rotation * Math.PI) / 180);
+    ctx.globalAlpha = mergedLayout.cutout.opacity;
+    ctx.drawImage(cutoutImg, -size / 2, -size / 2, size, size);
+    ctx.restore();
+  }
 
   // 3. RENDER STYLE
   ctx.save();
   // Apply Global Overlay Styles
-  ctx.globalAlpha = layout.overlay.opacity;
+  ctx.globalAlpha = mergedLayout.overlay.opacity;
   
   // We don't apply scale globally to the context because it messes up 'x' and 'y' offsets if not centered.
   // Instead, individual renderers will use layout.overlay.scale to adjust dimensions/fonts.
   
   switch (styleId) {
-    case 'header_grid': renderHeaderGrid(ctx, month, year, layout); break;
-    case 'minimal_bottom': renderMinimalBottom(ctx, month, year, layout); break;
-    case 'sidebar': renderSidebar(ctx, month, year, layout); break;
-    case 'glass_left': renderGlassLeft(ctx, month, year, layout); break;
-    case 'big_date': renderBigDate(ctx, month, year, layout); break;
-    case 'circular': renderCircular(ctx, month, year, layout); break;
-    case 'cards': renderCards(ctx, month, year, layout); break;
-    case 'classic': default: renderClassic(ctx, month, year, layout); break;
+    case 'header_grid': renderHeaderGrid(ctx, month, year, mergedLayout); break;
+    case 'minimal_bottom': renderMinimalBottom(ctx, month, year, mergedLayout); break;
+    case 'sidebar': renderSidebar(ctx, month, year, mergedLayout); break;
+    case 'glass_left': renderGlassLeft(ctx, month, year, mergedLayout); break;
+    case 'big_date': renderBigDate(ctx, month, year, mergedLayout); break;
+    case 'circular': renderCircular(ctx, month, year, mergedLayout); break;
+    case 'cards': renderCards(ctx, month, year, mergedLayout); break;
+    case 'classic': default: renderClassic(ctx, month, year, mergedLayout); break;
   }
   ctx.restore();
 };
@@ -216,7 +245,7 @@ const renderSidebar = (ctx: CanvasRenderingContext2D, month: string, year: numbe
   ctx.font = getFont(width * 0.1, fontFamily, 'normal');
   ctx.globalAlpha = ctx.globalAlpha * 0.7;
   ctx.fillText(year.toString(), x + width/2, y + (150 * scale));
-  ctx.globalAlpha = layout.overlay.opacity;
+  ctx.globalAlpha = mergedLayout.overlay.opacity;
 
   drawGrid(ctx, month, year, x + 20, y + (250 * scale), (width - 40) / 7, ((width - 40) / 7) * 1.2, layout);
 };
@@ -309,7 +338,7 @@ const renderCircular = (ctx: CanvasRenderingContext2D, month: string, year: numb
     ctx.font = getFont(h * 0.03 * scale, fontFamily, 'normal');
     ctx.globalAlpha = layout.overlay.opacity * 0.7;
     ctx.fillText(year.toString(), cx, cy + (20 * scale));
-    ctx.globalAlpha = layout.overlay.opacity;
+    ctx.globalAlpha = mergedLayout.overlay.opacity;
 
     const { daysInMonth } = getCalendarData(month, year);
     const angleStep = (Math.PI * 2) / daysInMonth;
@@ -409,7 +438,7 @@ const drawGrid = (
 
     const { daysInMonth, firstDayIndex } = getCalendarData(month, year);
 
-    ctx.globalAlpha = layout.overlay.opacity; // Full opacity for numbers
+    ctx.globalAlpha = mergedLayout.overlay.opacity; // Full opacity for numbers
     ctx.fillStyle = textColor;
     ctx.font = getFont(Math.min(cellWidth, cellHeight) * 0.4, fontFamily, 'normal');
 
@@ -435,7 +464,8 @@ export const drawCalendarOnCanvas = async (
   year: number,
   theme: string,
   layout: CanvasLayout = DEFAULT_LAYOUT,
-  styleId: CalendarStyleId = 'classic'
+  styleId: CalendarStyleId = 'classic',
+  cutoutImg?: HTMLImageElement | null
 ): Promise<void> => {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
@@ -449,7 +479,7 @@ export const drawCalendarOnCanvas = async (
     
     try {
         const img = await loadCanvasImage(imageBase64);
-        drawScene(ctx, img, month, year, theme, layout, styleId);
+        drawScene(ctx, img, month, year, theme, layout, styleId, null);
     } catch (e) {
         console.error("Failed to draw calendar", e);
     }

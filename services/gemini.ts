@@ -99,3 +99,34 @@ export const generateMonthlyPrompts = async (theme: string): Promise<string[]> =
     return MONTHS.map(m => constructPrompt(theme, m));
   }
 };
+
+export const reimagineCutout = async (cutoutBase64DataUrl: string, instructions: string): Promise<string> => {
+  const base64 = cutoutBase64DataUrl.includes('base64,') ? cutoutBase64DataUrl.split('base64,')[1] : cutoutBase64DataUrl;
+  const prompt = instructions?.trim() || 'Reimagine this cutout subject with a creative, high quality artistic style while preserving the shape and transparent background.';
+
+  const response = await ai.models.generateContent({
+    model: 'gemini-2.5-flash-image',
+    contents: {
+      parts: [
+        { text: prompt },
+        {
+          inlineData: {
+            mimeType: 'image/png',
+            data: base64
+          }
+        }
+      ]
+    },
+    config: {
+      imageConfig: { aspectRatio: '1:1' }
+    }
+  });
+
+  for (const part of response.candidates?.[0]?.content?.parts || []) {
+    if (part.inlineData) {
+      return `data:image/png;base64,${part.inlineData.data}`;
+    }
+  }
+
+  throw new Error('No cutout image returned from reimagine request.');
+};
