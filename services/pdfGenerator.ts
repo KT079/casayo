@@ -39,35 +39,51 @@ export const generateCalendarPDF = (images: CalendarImage[], theme: string, styl
       let finalX = baseX, finalY = baseY, finalW = baseWidth, finalH = baseHeight;
 
       if (imgData.layout) {
-          const { x, y, scale } = imgData.layout.image;
-          finalW = baseWidth * scale;
-          finalH = baseHeight * scale;
-          const scaleOffsetX = (finalW - baseWidth) / 2;
-          const scaleOffsetY = (finalH - baseHeight) / 2;
-          const conversionFactor = pageWidth / REFERENCE_WIDTH;
-          const mmX = x * conversionFactor;
-          const mmY = y * conversionFactor;
-          finalX = baseX + mmX - scaleOffsetX;
-          finalY = baseY + mmY - scaleOffsetY;
+        const { x, y, scale } = imgData.layout.image;
+        finalW = baseWidth * scale;
+        finalH = baseHeight * scale;
+        const scaleOffsetX = (finalW - baseWidth) / 2;
+        const scaleOffsetY = (finalH - baseHeight) / 2;
+        const conversionFactor = pageWidth / REFERENCE_WIDTH;
+        const mmX = x * conversionFactor;
+        const mmY = y * conversionFactor;
+        finalX = baseX + mmX - scaleOffsetX;
+        finalY = baseY + mmY - scaleOffsetY;
       }
-      
+
       let imageOpacity = 1;
       if (imgData.layout?.image?.opacity !== undefined) {
-          imageOpacity = imgData.layout.image.opacity;
+        imageOpacity = imgData.layout.image.opacity;
       }
-      
+
       if (imageOpacity < 1) {
         doc.setGState(new doc.GState({ opacity: imageOpacity }));
       }
-      
-      doc.addImage(`data:image/png;base64,${imgData.base64}`, "PNG", finalX, finalY, finalW, finalH, undefined, "FAST");
+
+      doc.addImage(`data:image/png;base64,${imgData.base64}`, 'PNG', finalX, finalY, finalW, finalH, undefined, 'FAST');
 
       if (imageOpacity < 1) {
         doc.setGState(new doc.GState({ opacity: 1 }));
       }
 
+      if (imgData.layout?.cutout?.enabled && imgData.layout.cutout.data) {
+        const cutoutSize = Math.min(pageWidth, pageHeight) * 0.45 * imgData.layout.cutout.scale;
+        const conversionFactor = pageWidth / REFERENCE_WIDTH;
+        const cutoutX = pageWidth / 2 + imgData.layout.cutout.x * conversionFactor - cutoutSize / 2;
+        const cutoutY = pageHeight / 2 + imgData.layout.cutout.y * conversionFactor - cutoutSize / 2;
+
+        if (imgData.layout.cutout.opacity < 1) {
+          doc.setGState(new doc.GState({ opacity: imgData.layout.cutout.opacity }));
+        }
+
+        doc.addImage(imgData.layout.cutout.data, 'PNG', cutoutX, cutoutY, cutoutSize, cutoutSize, undefined, 'FAST', imgData.layout.cutout.rotation);
+
+        if (imgData.layout.cutout.opacity < 1) {
+          doc.setGState(new doc.GState({ opacity: 1 }));
+        }
+      }
     } catch (e) {
-      console.error("Error adding image to PDF", e);
+      console.error('Error adding image to PDF', e);
     }
 
     // 2. Render Style

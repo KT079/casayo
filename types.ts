@@ -20,6 +20,15 @@ export interface CanvasLayout {
     textColor: string;
     fontFamily: string;
   };
+  cutout: {
+    enabled: boolean;
+    data?: string;
+    x: number;
+    y: number;
+    scale: number;
+    rotation: number;
+    opacity: number;
+  };
 }
 
 export type CalendarStyleId = 

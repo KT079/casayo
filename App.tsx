@@ -76,7 +76,8 @@ const App: React.FC = () => {
                  ...DEFAULT_LAYOUT.image, 
                  opacity: globalLayout.image.opacity 
              },
-             overlay: { ...globalLayout.overlay }
+             overlay: { ...globalLayout.overlay },
+             cutout: { ...globalLayout.cutout }
         };
 
         const calendarImg: CalendarImage = { month, base64, prompt, layout };
@@ -121,7 +122,8 @@ const App: React.FC = () => {
                     ...existingLayout.image,
                     opacity: globalLayout.image.opacity
                 },
-                overlay: { ...globalLayout.overlay }
+                overlay: { ...globalLayout.overlay },
+                cutout: { ...globalLayout.cutout }
             }
         };
     });
